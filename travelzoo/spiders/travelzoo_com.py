@@ -9,16 +9,15 @@ from travelzoo.items import TravelZooItem
 class TravelZooComSpider(CrawlSpider):
     name = 'travelzoo.com'
     allowed_domains = ['www.travelzoo.com']
-    categories = ('london', 'other-cities') #'southeast', 'southwest', 'midlands', 'wales')
-    start_urls = []
-    for category in categories:
-        start_urls.append('http://www.travelzoo.com/uk/uk-hotels-breaks/%s/' % category)
-
-    rules = []
-    rules.append(Rule(LinkExtractor(deny=r'/Interstitial.aspx')))
-    rules.append(Rule(LinkExtractor(allow=r'/uk/entertainment/[\w-]+/\?tz_adid=\d+'), callback='parse_item', follow=True))
-    for category in categories:
-        rules.append(Rule(LinkExtractor(allow=r'/uk/uk-hotels-breaks/%s/[\w-]+/' % category), callback='parse_item', follow=True))
+    start_urls = ['http://www.travelzoo.com/uk/']
+    rules = (
+        # links to all sub section index pages from the left hand menu
+        Rule(LinkExtractor(restrict_xpaths=("//div[@id='leftNavigationWrapper']/ul/li//ul/li[@class]"))),
+        # link to the main deal on a sub section index page
+        Rule(LinkExtractor(restrict_xpaths=("//div[contains(@class,'featuredDeal')]//h2")), callback='parse_item', follow=True),
+        # link to the premium placement deals below the main deal on a sub section index page
+        Rule(LinkExtractor(restrict_xpaths=("//div[contains(@class,'premiumPlacement')]//h2")), callback='parse_item', follow=True)
+    )
 
     def parse_item(self, response):
         self.log("Parsing response")
@@ -30,6 +29,7 @@ class TravelZooComSpider(CrawlSpider):
             self.log("Parsing unknown page")
             i = TravelZooItem()
             i['name'] = response.css('h1::text').extract()
+            i['url'] = response.url
             i['description'] = response.css('.dealText p:first-child').xpath('node()').extract()
             i['whats_included'] = response.css('.dealText ul').extract()
             return i
