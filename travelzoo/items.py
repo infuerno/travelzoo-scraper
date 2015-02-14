@@ -25,4 +25,3 @@ class TravelZooItem(scrapy.Item):
     value = scrapy.Field()
     discount = scrapy.Field()
     bought = scrapy.Field()
-    pass

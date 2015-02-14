@@ -7,16 +7,20 @@ from travelzoo.items import TravelZooItem
 
 
 class TravelZooComSpider(CrawlSpider):
-    name = "travelzoo.com"
-    allowed_domains = ["www.travelzoo.com"]
-    start_urls = ["http://www.travelzoo.com/uk/uk-hotels-breaks/"]
+    name = 'travelzoo.com'
+    allowed_domains = ['www.travelzoo.com']
+    categories = ('london', 'other-cities') #'southeast', 'southwest', 'midlands', 'wales')
+    start_urls = []
+    for category in categories:
+        start_urls.append('http://www.travelzoo.com/uk/uk-hotels-breaks/%s/' % category)
 
     rules = []
-    for category in ('london'): #, 'other-cities','southeast', 'southwest', 'midlands', 'wales'):
-        rules.append(Rule(LinkExtractor(allow=r'/uk/uk-hotels-breaks/%s/' % category)))
+    for category in categories:
+        #rules.append(Rule(LinkExtractor(allow=r'/uk/uk-hotels-breaks/%s/' % category)))
         rules.append(Rule(LinkExtractor(allow=r'/uk/uk-hotels-breaks/%s/[\w-]+/' % category), callback='parse_item', follow=True))
 
     def parse_item(self, response):
+        self.log("Parsing response")
         i = TravelZooItem()
         inner_deal_page = response.css('.innerDealPage')
         i['name'] = inner_deal_page.css('h1').xpath('text()').extract()
