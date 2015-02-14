@@ -1,0 +1,12 @@
+setup.py
+project.egg-info/PKG-INFO
+project.egg-info/SOURCES.txt
+project.egg-info/dependency_links.txt
+project.egg-info/entry_points.txt
+project.egg-info/top_level.txt
+travelzoo/__init__.py
+travelzoo/items.py
+travelzoo/pipelines.py
+travelzoo/settings.py
+travelzoo/spiders/__init__.py
+travelzoo/spiders/travelzoo_com.py

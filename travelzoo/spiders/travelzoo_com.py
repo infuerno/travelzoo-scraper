@@ -21,38 +21,36 @@ class TravelZooComSpider(BaseSpider):
 
     def parse_section(self, response):
         self.log("Parsing section url: %s" % response.url)
-        featured_deals = response.xpath("//div[contains(@class,'featuredDeal')]")
-        for featured_deal in featured_deals:
-            featured_deal_href = featured_deal.xpath(".//h2/a/@href").extract()[0]
-            featured_deal_id = re.search('-(\d+)/$', featured_deal_href).group(1)
-            yield Request(url=featured_deal_href, callback=self.parse_item, meta={'url': featured_deal_href, 'id': featured_deal_id})
-        premium_placements = response.xpath("//div[contains(@class,'premiumPlacement')]")
-        for premium_placement in premium_placements:
-            premium_placement_href = premium_placement.xpath(".//h2/a/@href").extract()[0]
-            premium_placement_id = re.search('-(\d+)/$', premium_placement_href).group(1)
-            yield Request(url=premium_placement_href, callback=self.parse_item, meta={'url': premium_placement_href, 'id': premium_placement_id})
+        parse_section_items(response, 'featuredDeal')
+        parse_section_items(response, 'premiumPlacement')
+
+    def parse_section_items(self, response, class_name_contains):
+        items = response.xpath("//div[contains(@class,'%s')]" % class_name_contains)
+        for item in items:
+            item_href = featured_deal.xpath(".//h2/a/@href").extract()[0]
+            item_id = re.search('-(\d+)/$', item_href).group(1)
+            yield Request(url=item_href, callback=self.parse_item, meta={'url': item_href, 'id': item_id})
 
     def parse_item(self, response):
         self.log("Parsing item url: %s" % response.url)
+        i = TravelZooItem()
+        i['id'] = response.meta['id']
+        i['url'] = response.meta['url']
+        i['created_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
+        i['modified_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S.%f')
         if len(response.css('.page.noBorder')):
-            return self.parse_item_no_border(response)
+            return self.parse_item_no_border(response, i)
         elif len(response.css('.page.withBorder')):
-            return self.parse_item_with_border(response)
+            return self.parse_item_with_border(response, i)
         else:
             self.log("Parsing unknown page type, this may not give many details...")
-            i = TravelZooItem()
-            i['id'] = response.meta['id']
-            i['url'] = response.meta['url']
             i['name'] = response.css('h1::text').extract()
             i['description'] = response.css('.dealText p:first-child').xpath('node()').extract()
             i['whats_included'] = response.css('.dealText ul').extract()
             return i
 
-    def parse_item_with_border(self, response):
+    def parse_item_with_border(self, response, i):
         self.log("Parsing page with border")
-        i = TravelZooItem()
-        i['id'] = response.meta['id']
-        i['url'] = response.meta['url']
         page = response.css('.innerDealPage')
         i['name'] = page.css('h1::text').extract()
         i['description'] = page.css('.dealDetailsSection').css('.introDescription').xpath('node()').extract()
@@ -75,11 +73,8 @@ class TravelZooComSpider(BaseSpider):
         i['bought'] = deal_page_right.css('.buyNowBox .discountBox').xpath("span[contains(@id,'Bought')]/text()").extract()
         return i
 
-    def parse_item_no_border(self, response):
+    def parse_item_no_border(self, response, i):
         self.log("Parsing page no border")
-        i = TravelZooItem()
-        i['id'] = response.meta['id']
-        i['url'] = response.meta['url']
         page = response.css('.page.noBorder')
         i['name'] = page.css('h1').xpath('text()').extract()
         i['why_we_love_it'] = page.xpath(".//div[contains(@id,'spanWhyLove')]/ul").extract()
