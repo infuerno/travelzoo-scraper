@@ -10,6 +10,7 @@ import scrapy
 
 class TravelZooItem(scrapy.Item):
     # define the fields for your item here like:
+    id = scrapy.Field()
     name = scrapy.Field()
     url = scrapy.Field()
     description = scrapy.Field()
