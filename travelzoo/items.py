@@ -6,16 +6,17 @@
 # http://doc.scrapy.org/en/latest/topics/items.html
 
 import scrapy
+from scrapy.contrib.loader.processor import MapCompose, Join, TakeFirst
 
 
 class TravelZooItem(scrapy.Item):
     # define the fields for your item here like:
     id = scrapy.Field()
-    name = scrapy.Field()
+    name = scrapy.Field(output_processor=TakeFirst())
     url = scrapy.Field()
     category = scrapy.Field()
     sub_category = scrapy.Field()
-    description = scrapy.Field()
+    description = scrapy.Field(output_processor=Join(""))
     why_we_love_it = scrapy.Field()
     contact_name = scrapy.Field()
     contact_address = scrapy.Field()
