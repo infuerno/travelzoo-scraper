@@ -10,7 +10,7 @@ from scrapy.contrib.loader.processor import MapCompose, Join, TakeFirst
 
 
 class TravelZooItem(scrapy.Item):
-    # define the fields for your item here like:
+    """TravelZoo container (dictionary-like object) for scraped data"""
     id = scrapy.Field()
     name = scrapy.Field(output_processor=TakeFirst())
     url = scrapy.Field()

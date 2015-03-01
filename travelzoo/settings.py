@@ -12,6 +12,7 @@ BOT_NAME = 'travelzoo'
 
 SPIDER_MODULES = ['travelzoo.spiders']
 NEWSPIDER_MODULE = 'travelzoo.spiders'
+REDIRECT_ENABLED = False
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = 'travelzoo (+http://www.yourdomain.com)'

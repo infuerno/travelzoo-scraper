@@ -2,6 +2,7 @@
 import scrapy
 import re
 from datetime import datetime
+from scrapy import log
 from scrapy.http import Request
 from scrapy.spider import BaseSpider
 from scrapy.contrib.loader import ItemLoader
@@ -9,6 +10,7 @@ from travelzoo.items import TravelZooItem
 
 
 class TravelZooComSpider(BaseSpider):
+    """Spider for regularly updated travelzoo.com site, UK version"""
     name = 'travelzoo.com'
     allowed_domains = ['www.travelzoo.com']
     start_urls = ['http://www.travelzoo.com/uk/']
@@ -18,30 +20,18 @@ class TravelZooComSpider(BaseSpider):
         hrefs = response.xpath("//div[@id='leftNavigationWrapper']/ul/li[a/text()!='Destinations']//ul/li[not(@class)]/a/@href").extract()
         for href in hrefs:
             self.log("Yielding request for url: %s" % href)
-            yield Request(url=href, callback=self.parse_section_items)
+            yield Request(url=href, callback=self.parse_section)
 
     def parse_section(self, response):
-        self.log("Parsing section url: %s" % response.url)
-        # These functions don't get called - why
-        self.parse_section_items(response, 'featuredDeal')
-        self.parse_section_items(response, 'premiumPlacement')
-        self.parse_section_items(response, 'dealItem')
-
-    def parse_section_items(self, response, class_name_contains):
-        self.log("Parsing section item for css class: %s" % class_name_contains)
-        items = response.xpath("//div[contains(@class,'%s')]" % class_name_contains)
+        items = response.xpath("//div[contains(@class,'featuredDeal') or contains(@class, 'premiumPlacement') or contains(@class, 'dealItem')]")
         self.log("Found %d item(s) in section, getting item urls of items found" % len(items))
         for item in items:
             item_href = item.xpath(".//h2/a/@href").extract()[0]
-            self.log("Extracted url: %s" % item_href)
-            # TODO check out the redirection setting which may be able to disable this
-            if "Interstitial.aspx" in item_href:
-                self.log("Filtering redirection url: %s" % item_href)
-                return
+            self.log("Extracted item url: %s" % item_href)
             self.log("Extracting item id from url using regex")
-            re.search('[-/](\d+)[/A-Za-z-]*$', item_href)
+            match = re.search('[-/](\d+)[/0-9A-Za-z-]*$', item_href)
             if match is None:
-                self.log("ERROR couldn't parse id from url, check regex", level=self.log.ERROR)
+                self.log("ERROR couldn't parse id from url, check regex", level=log.ERROR)
                 return
             item_id = match.group(1)
             self.log("Item id is %s, yielding url" % item_id)
@@ -49,6 +39,7 @@ class TravelZooComSpider(BaseSpider):
 
     def parse_item(self, response):
         self.log("Parsing item url: %s" % response.url)
+        self.log("Url of the page is actually %s" % response.url)
         i = TravelZooItem()
         i['id'] = response.meta['id']
         i['url'] = response.meta['url']
@@ -69,8 +60,8 @@ class TravelZooComSpider(BaseSpider):
     def parse_item_with_border(self, response, i):
         self.log("Parsing page with border")
         page = response.css('.innerDealPage')
-        l = ItemLoader(item=i, response=response)
-        l.add_css('name', 'h1::text')
+        loader = ItemLoader(item=i, selector=page)
+        loader.add_css('name', 'h1::text')
         i['description'] = page.css('.dealDetailsSection').css('.introDescription').xpath('node()').extract()
         i['why_we_love_it'] = page.xpath(".//div[contains(@class,'dealDetailsSection') and h2[text()='Why we love it']]/ul").extract()
 
@@ -89,7 +80,7 @@ class TravelZooComSpider(BaseSpider):
         i['value'] = deal_page_right.css('.buyNowBox .value').xpath('text()').extract()
         i['discount'] = deal_page_right.css('.buyNowBox .discount').xpath('text()').extract()
         i['bought'] = deal_page_right.css('.buyNowBox .discountBox').xpath("span[contains(@id,'Bought')]/text()").extract()
-        return l.load_item()
+        return loaderc.load_item()
 
     def parse_item_no_border(self, response, i):
         self.log("Parsing page no border")
