@@ -11,8 +11,19 @@
 BOT_NAME = 'travelzoo'
 
 SPIDER_MODULES = ['travelzoo.spiders']
+ITEM_PIPELINES = ['travelzoo.pipelines.TravelZooPipeline']
 NEWSPIDER_MODULE = 'travelzoo.spiders'
 REDIRECT_ENABLED = False
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = 'travelzoo (+http://www.yourdomain.com)'
+
+DATABASE = {
+    'drivername': 'postgres',
+    'host': 'localhost',
+    'port': '5432',
+    'username': 'claire',
+    'password': '',
+    'database': 'travelzoo'
+}
+

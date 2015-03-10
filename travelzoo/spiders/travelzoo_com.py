@@ -6,7 +6,7 @@ from scrapy import log
 from scrapy.http import Request
 from scrapy.spider import BaseSpider
 from scrapy.contrib.loader import ItemLoader
-from travelzoo.items import TravelZooItem
+from travelzoo.items import TravelZooDeal
 
 
 class TravelZooComSpider(BaseSpider):
@@ -24,69 +24,67 @@ class TravelZooComSpider(BaseSpider):
 
     def parse_section(self, response):
         items = response.xpath("//div[contains(@class,'featuredDeal') or contains(@class, 'premiumPlacement') or contains(@class, 'dealItem')]")
-        self.log("Found %d item(s) in section, getting item urls of items found" % len(items))
         for item in items:
             item_href = item.xpath(".//h2/a/@href").extract()[0]
-            self.log("Extracted item url: %s" % item_href)
-            self.log("Extracting item id from url using regex")
-            match = re.search('[-/](\d+)[/0-9A-Za-z-]*$', item_href)
+            pattern = '[-/](\d{6,7})[/0-9A-Za-z-]*$'
+            match = re.search(pattern, item_href)
             if match is None:
-                self.log("ERROR couldn't parse id from url, check regex", level=log.ERROR)
+                self.log("ERROR couldn't parse id from url: %s using regex: %s" % (item_href, pattern), level=log.ERROR)
                 return
             item_id = match.group(1)
-            self.log("Item id is %s, yielding url" % item_id)
+            self.log("Item id: %s, yielding url: %s" % (item_id, item_href))
             yield Request(url=item_href, callback=self.parse_item, meta={'url': item_href, 'id': item_id})
 
     def parse_item(self, response):
         self.log("Parsing item url: %s" % response.url)
         self.log("Url of the page is actually %s" % response.url)
-        i = TravelZooItem()
+        i = TravelZooDeal()
         i['id'] = response.meta['id']
         i['url'] = response.meta['url']
-        i['created_at'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        i['updated_at'] = i['created_at']
         if len(response.css('.page.noBorder')):
             return self.parse_item_no_border(response, i)
         elif len(response.css('.page.withBorder')):
             return self.parse_item_with_border(response, i)
         else:
             self.log("Parsing unknown page type, this may not give many details...")
-            l = ItemLoader(item=i, response=response)
-            l.add_css('name', 'h1::text')
-            i['description'] = response.css('.dealText p:first-child').xpath('node()').extract()
-            i['whats_included'] = response.css('.dealText ul').extract()
-            return l.load_item()
+            loader = ItemLoader(item=i, response=response)
+            loader.add_css('name', 'h1::text')
+            loader.add_css('description', '.dealText p:first-child')
+            loader.add_css('whats_included', '.dealText ul')
+            return loader.load_item()
 
     def parse_item_with_border(self, response, i):
         self.log("Parsing page with border")
         page = response.css('.innerDealPage')
         loader = ItemLoader(item=i, selector=page)
         loader.add_css('name', 'h1::text')
-        i['description'] = page.css('.dealDetailsSection').css('.introDescription').xpath('node()').extract()
-        i['why_we_love_it'] = page.xpath(".//div[contains(@class,'dealDetailsSection') and h2[text()='Why we love it']]/ul").extract()
+        loader.add_xpath('description', "//div[contains(@class, 'introDescription')]//text()")
+        loader.add_xpath('why_we_love_it', ".//div[contains(@class,'dealDetailsSection') and h2[text()='Why we love it']]/ul//text()")
+
+        loader.add_xpath('whats_included', ".//div[contains(@class,'dealDetailsSection') and h2[contains(text(), 'included')]]/ul//text()")
+        loader.add_xpath('small_print', ".//div[contains(@class,'dealDetailsSection') and h2[text()='The small print']]/p//text()")
 
         div_where = page.xpath(".//div[contains(@class,'dealDetailsSection') and h2[text()='Where']]")
-        i['contact_name'] = div_where.xpath("div[contains(@id,'MerchantName')]/text()").extract()
-        i['contact_address'] = div_where.xpath("div[contains(@id,'MerchantAddress')]/text()").extract()
-        i['contact_map'] = div_where.xpath("div[contains(@id,'LinkMap')]/text()").extract()
-        i['contact_phone'] = div_where.xpath("div[contains(@id,'MerchantPhone')]/text()").extract()
-        i['contact_website'] = div_where.xpath("div[contains(@id,'MerchantWebsite')]/text()").extract()
-
-        i['whats_included'] = page.xpath(".//div[contains(@class,'dealDetailsSection') and h2[contains(text(), 'included')]]/ul").extract()
-        i['small_print'] = page.xpath(".//div[contains(@class,'dealDetailsSection') and h2[text()='The small print']]/p").xpath('node()').extract()
+        loader.selector = div_where
+        loader.add_xpath('contact_name', "div[contains(@id,'MerchantName')]/text()")
+        loader.add_xpath('contact_address', "div[contains(@id,'MerchantAddress')]/text()")
+        loader.add_xpath('contact_map', "div[contains(@id,'LinkMap')]/text()")
+        loader.add_xpath('contact_phone', "div[contains(@id,'MerchantPhone')]/text()")
+        loader.add_xpath('contact_website', "div[contains(@id,'MerchantWebsite')]/text()")
 
         deal_page_right = response.css('#dealPageRightPart')
-        i['price'] = deal_page_right.css('.buyNowBox .bigPrice').xpath('text()').extract()
-        i['value'] = deal_page_right.css('.buyNowBox .value').xpath('text()').extract()
-        i['discount'] = deal_page_right.css('.buyNowBox .discount').xpath('text()').extract()
-        i['bought'] = deal_page_right.css('.buyNowBox .discountBox').xpath("span[contains(@id,'Bought')]/text()").extract()
-        return loaderc.load_item()
+        loader.selector = deal_page_right
+        loader.add_xpath('price', ".//span[@id='ctl00_Main_OurPrice']/text()")
+        loader.add_xpath('value', ".//span[@id='ctl00_Main_PriceValue']/text()")
+        loader.add_xpath('discount', ".//span[@id='ctl00_Main_Discount']/text()")
+        loader.add_xpath('bought', ".//span[contains(@id,'Bought')]/text()")
+        return loader.load_item()
 
     def parse_item_no_border(self, response, i):
         self.log("Parsing page no border")
         page = response.css('.page.noBorder')
-        l = ItemLoader(item=i, response=response)
-        l.add_css('name', 'h1::text')
-        i['why_we_love_it'] = page.xpath(".//div[contains(@id,'spanWhyLove')]/ul").extract()
-        i['whats_included'] = page.xpath(".//div[contains(@id,'DivWhatsIncluded')]/div").xpath('node()').extract()
-        return l.load_item()
+        loader = ItemLoader(item=i, selector=page)
+        loader.add_css('name', 'h1::text')
+        loader.add_xpath("why_we_love_it", ".//div[contains(@id,'spanWhyLove')]/ul")
+        loader.add_xpath("whats_included", ".//div[contains(@id,'DivWhatsIncluded')]/div")
+        return loader.load_item()
